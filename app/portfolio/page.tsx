@@ -1,49 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Shell } from '@/components/Shell'
 import { MetricCard } from '@/components/MetricCard'
 import { PortfolioLineChart } from '@/components/Charts'
-import { periods, portfolioChart, positions } from '@/lib/data'
+import { periods, portfolioChart } from '@/lib/data'
+import { formatEur } from '@/lib/portfolio'
 
-export default function Portfolio() {
-  const [period, setPeriod] = useState('1D')
-  return (
-    <Shell>
-      <div className="max-w-5xl">
-        <h1 className="text-4xl font-bold mb-2">Portafolio</h1>
-        <div className="flex gap-4 mb-8" style={{ color: 'var(--color-positive)' }}>
-          <MetricCard label="Hoy" value="€96,41" change="+€96,41" pct="0,21%" positive />
-          <MetricCard label="P/G abierto" value="-€615,12" change="-€615,12" pct="-1,35%" positive={false} />
-          <MetricCard label="Total" value="-€615,12" change="-€615,12" pct="-1,35%" positive={false} />
-        </div>
-        <div className="rounded-lg p-4 mb-8" style={{ background: 'var(--color-panel)' }}>
-          <PortfolioLineChart data={portfolioChart} />
-          <div className="flex gap-2 mt-4 flex-wrap">
-            {periods.map((p) => (
-              <button key={p} onClick={() => setPeriod(p)} className="px-3 py-1 text-xs rounded transition" style={{ background: p === period ? 'var(--color-positive)' : 'var(--color-control)', color: p === period ? '#000' : 'inherit' }}>
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="rounded-lg p-4" style={{ background: 'var(--color-panel)' }}>
-          <h2 className="font-bold mb-4">P/G</h2>
-          <div className="space-y-3">
-            {positions.map((pos) => (
-              <Link key={pos.symbol} href={`/asset/${pos.symbol}`}>
-                <div className="flex items-center gap-4 p-3 rounded cursor-pointer hover:opacity-80 transition" style={{ background: 'var(--color-control)' }}>
-                  <span className="font-bold text-sm w-20">{pos.symbol}</span>
-                  <div className="flex-1 h-6 rounded" style={{ background: 'var(--color-line)' }}>
-                    <div className="h-full rounded" style={{ background: pos.positive ? 'var(--color-positive)' : 'var(--color-negative)', width: `${pos.pct}%` }} />
-                  </div>
-                  <span className={`text-sm font-bold w-16 text-right`} style={{ color: pos.positive ? 'var(--color-positive)' : 'var(--color-negative)' }}>{pos.value}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-    </Shell>
-  )
-}
+type Row = { symbol: string; value: number | null; openPnl: number | null; openPnlPct: number | null }
+export default function Portfolio() { const [period,setPeriod]=useState('1D'); const [rows,setRows]=useState<Row[]>([]); const [totals,setTotals]=useState({today:0,open:0,value:0}); useEffect(()=>{ fetch('/api/portfolio').then(r=>r.json()).then(d=>{setRows(d.rows);setTotals(d.totals)}).catch(()=>{}) },[]); const sorted=[...rows].sort((a,b)=>(b.openPnl??-Infinity)-(a.openPnl??-Infinity)); return <Shell><div className="max-w-5xl"><h1 className="text-4xl font-bold mb-2">Portafolio</h1><div className="flex gap-4 mb-8"><MetricCard label="Hoy" value={formatEur(totals.today)} change={formatEur(totals.today)} pct="" positive={totals.today>=0}/><MetricCard label="P/G abierto" value={formatEur(totals.open)} change={formatEur(totals.open)} pct="" positive={totals.open>=0}/><MetricCard label="Total" value={formatEur(totals.value)} change={formatEur(totals.value)} pct="" positive={totals.value>=0}/></div><div className="rounded-lg p-4 mb-8" style={{background:'var(--color-panel)'}}><PortfolioLineChart data={portfolioChart}/><div className="flex gap-2 mt-4 flex-wrap">{periods.map(p=><button key={p} onClick={()=>setPeriod(p)} className="px-3 py-1 text-xs rounded transition" style={{background:p===period?'var(--color-positive)':'var(--color-control)',color:p===period?'#000':'inherit'}}>{p}</button>)}</div></div><div className="rounded-lg p-4" style={{background:'var(--color-panel)'}}><h2 className="font-bold mb-4">P/G</h2><div className="flex flex-col gap-3">{sorted.map(pos=><Link key={pos.symbol} href={`/asset/${pos.symbol}`}><div className="flex items-center gap-4 p-3 rounded cursor-pointer hover:opacity-80 transition" style={{background:'var(--color-control)'}}><span className="font-bold text-sm w-24">{pos.symbol}</span><div className="flex-1 h-6 rounded" style={{background:'var(--color-line)'}}><div className="h-full rounded" style={{background:(pos.openPnl??0)>=0?'var(--color-positive)':'var(--color-negative)',width:`${Math.min(100,Math.max(3,Math.abs(pos.openPnlPct??0)*3))}%`}} /></div><span className="text-sm font-bold w-24 text-right" style={{color:(pos.openPnl??0)>=0?'var(--color-positive)':'var(--color-negative)'}}>{formatEur(pos.openPnl)}</span></div></Link>)}</div></div></div></Shell> }
