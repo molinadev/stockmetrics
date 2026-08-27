@@ -7,17 +7,20 @@ function parseDecimal(value: string) {
   return Number(value.trim().replace(',', '.'))
 }
 
-export function PositionEditor({ symbol, name, onSaved }: { symbol: string; name?: string | null; onSaved?: () => void }) {
+export function PositionEditor({ symbol, name, symbols, onSaved }: { symbol?: string; name?: string | null; symbols?: string[]; onSaved?: () => void }) {
+  const [selectedSymbol, setSelectedSymbol] = useState(symbol ?? symbols?.[0] ?? '')
+  const activeSymbol = symbol ?? selectedSymbol
+
   const [open, setOpen] = useState(false)
   const [quantity, setQuantity] = useState('')
   const [averageCost, setAverageCost] = useState('')
   const [costCurrency, setCostCurrency] = useState<CostCurrency>('EUR')
   const [error, setError] = useState('')
-  const existing = getPortfolioPosition(symbol)
+  const existing = getPortfolioPosition(activeSymbol)
   const isEditing = Boolean(existing)
 
   function openEditor() {
-    const position = getPortfolioPosition(symbol)
+    const position = getPortfolioPosition(activeSymbol)
     setQuantity(position ? String(position.quantity) : '')
     setAverageCost(position ? String(position.averageCost).replace('.', ',') : '')
     setCostCurrency(position?.costCurrency ?? 'EUR')
@@ -31,14 +34,14 @@ export function PositionEditor({ symbol, name, onSaved }: { symbol: string; name
     if (!Number.isFinite(q) || q <= 0) return setError('Introduce una cantidad mayor que 0.')
     if (!Number.isFinite(c) || c <= 0) return setError('Introduce un coste promedio mayor que 0.')
     if (!costCurrency) return setError('Selecciona una moneda.')
-    savePortfolioPosition(symbol, { quantity: q, averageCost: c, costCurrency })
+    savePortfolioPosition(activeSymbol, { quantity: q, averageCost: c, costCurrency })
     setOpen(false)
     onSaved?.()
   }
 
   function remove() {
     if (!window.confirm(`¿Eliminar ${symbol} del portfolio?`)) return
-    removePortfolioPosition(symbol)
+    removePortfolioPosition(activeSymbol)
     setOpen(false)
     onSaved?.()
   }
@@ -49,8 +52,9 @@ export function PositionEditor({ symbol, name, onSaved }: { symbol: string; name
     </button>
     {open && <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="position-editor-title">
       <div className="w-full max-w-md rounded-xl p-6" style={{ background: 'var(--color-panel)' }}>
-        <h2 id="position-editor-title" className="text-2xl font-bold">{isEditing ? 'Editar portfolio' : `Añadir ${symbol} al portfolio`}</h2>
-        <p className="mt-2 opacity-65">{name ?? symbol}</p>
+        <h2 id="position-editor-title" className="text-2xl font-bold">{isEditing ? 'Editar portfolio' : `Añadir ${activeSymbol} al portfolio`}</h2>
+        <p className="mt-2 opacity-65">{name ?? activeSymbol}</p>
+        {!symbol && symbols?.length ? <label className="mt-5 flex flex-col gap-2">Activo<select value={selectedSymbol} onChange={e => setSelectedSymbol(e.target.value)} className="rounded-lg p-3" style={{ background: 'var(--color-control)', color: 'inherit' }}>{symbols.map(item => <option key={item} value={item}>{item}</option>)}</select></label> : null}
         <div className="mt-6 flex flex-col gap-4">
           <label className="flex flex-col gap-2">Cantidad<input inputMode="decimal" min="0" step="any" value={quantity} onChange={e => setQuantity(e.target.value)} aria-invalid={Boolean(error && (!quantity || parseDecimal(quantity) <= 0))} className="rounded-lg p-3" style={{ background: 'var(--color-control)', color: 'inherit' }} /></label>
           <label className="flex flex-col gap-2">Coste promedio<input inputMode="decimal" min="0" step="any" value={averageCost} onChange={e => setAverageCost(e.target.value)} className="rounded-lg p-3" style={{ background: 'var(--color-control)', color: 'inherit' }} /></label>
