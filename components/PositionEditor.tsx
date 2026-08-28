@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { currencies, getPortfolioPosition, removePortfolioPosition, savePortfolioPosition, type CostCurrency } from '@/lib/positions'
+import { useEffect, useState } from 'react'
+import { currencies, getPortfolioPosition, loadPortfolioPositions, removePortfolioPosition, savePortfolioPosition, type CostCurrency } from '@/lib/positions'
 
 function parseDecimal(value: string) {
   return Number(value.trim().replace(',', '.'))
@@ -9,7 +9,9 @@ function parseDecimal(value: string) {
 
 export function PositionEditor({ symbol, name, symbols, onSaved }: { symbol?: string; name?: string | null; symbols?: string[]; onSaved?: () => void }) {
   const [selectedSymbol, setSelectedSymbol] = useState(symbol ?? symbols?.[0] ?? '')
+  const [loaded, setLoaded] = useState(false)
   const activeSymbol = symbol ?? selectedSymbol
+  useEffect(() => { loadPortfolioPositions().finally(() => setLoaded(true)) }, [])
 
   const [open, setOpen] = useState(false)
   const [quantity, setQuantity] = useState('')
@@ -28,20 +30,20 @@ export function PositionEditor({ symbol, name, symbols, onSaved }: { symbol?: st
     setOpen(true)
   }
 
-  function save() {
+  async function save() {
     const q = parseDecimal(quantity)
     const c = parseDecimal(averageCost)
     if (!Number.isFinite(q) || q <= 0) return setError('Introduce una cantidad mayor que 0.')
     if (!Number.isFinite(c) || c <= 0) return setError('Introduce un coste promedio mayor que 0.')
     if (!costCurrency) return setError('Selecciona una moneda.')
-    savePortfolioPosition(activeSymbol, { quantity: q, averageCost: c, costCurrency })
+    await savePortfolioPosition(activeSymbol, { quantity: q, averageCost: c, costCurrency })
     setOpen(false)
     onSaved?.()
   }
 
-  function remove() {
+  async function remove() {
     if (!window.confirm(`¿Eliminar ${symbol} del portfolio?`)) return
-    removePortfolioPosition(activeSymbol)
+    await removePortfolioPosition(activeSymbol)
     setOpen(false)
     onSaved?.()
   }
